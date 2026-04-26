@@ -4,15 +4,9 @@ using UnityEngine;
 [RequireComponent(typeof(ShooterController))]
 public abstract class BaseCharacter : MonoBehaviour
 {
-    [SerializeField]
-    private Wp _wpPrefab;
-
-    [SerializeField]
-    private Transform _hand;
-
-    [SerializeField]
-    private float _heath = 10f;
-
+    [SerializeField] private Wp _baseWpPrefab;
+    [SerializeField] private Transform _hand;
+    [SerializeField] private float _heath = 10f;
 
     private CharacterMovementControler _characterMovementControler;
     private ShooterController _shooterController;
@@ -25,7 +19,7 @@ public abstract class BaseCharacter : MonoBehaviour
 
     protected void Start()
     {
-        _shooterController.SetWp(_wpPrefab, _hand);
+        SetWp(_baseWpPrefab);
     }
 
     protected void Update()
@@ -44,7 +38,17 @@ public abstract class BaseCharacter : MonoBehaviour
 
         if (_heath <= 0f)
             Destroy(gameObject);
-        
+    }
+
+    public void SetWp(Wp wpPrefab)
+    {
+        _shooterController.SetWp(wpPrefab, _hand);
+    }
+
+    /// <summary> Применить временное ускорение от подбираемого бонуса. </summary>
+    public void ApplySpeedBoost(float multiplier, float duration)
+    {
+        _characterMovementControler.ApplyTemporarySpeedBoost(multiplier, duration);
     }
 
     protected abstract Vector3 GetMovementDirect();
@@ -57,15 +61,19 @@ public abstract class BaseCharacter : MonoBehaviour
             _heath -= bullet.Damage;
             Destroy(other.gameObject);
         }
+        else if (LayerUnitl.IsPickUp(other.gameObject))
+        {
+            var pickUp = other.GetComponent<PickUpItem>();
+            pickUp.PickUp(this);
+            Destroy(pickUp.gameObject);
+        }
     }
-
 
     protected void OnDrawGizmos()
     {
         var lastColor = Gizmos.color;
         Gizmos.color = Color.red;
         Gizmos.DrawCube(_hand.position, new Vector3(0.2f, 0.2f, 0.2f));
-
         Gizmos.color = lastColor;
     }
 }
