@@ -4,18 +4,15 @@ using UnityEngine;
 [RequireComponent(typeof(ShooterController))]
 public abstract class BaseCharacter : MonoBehaviour
 {
-    [SerializeField]
-    private Wp _wpPrefab;
+    [SerializeField] private Wp _baseWpPrefab;
+    [SerializeField] private Transform _hand;
+    [SerializeField] protected float _heath = 10f;
+    [SerializeField] protected float _maxHealth = 10f;      // добавлено
 
-    [SerializeField]
-    private Transform _hand;
-
-    [SerializeField]
-    private float _heath = 10f;
-
-
-    private CharacterMovementControler _characterMovementControler;
+    protected CharacterMovementControler _characterMovementControler; // изменён доступ
     private ShooterController _shooterController;
+
+    protected bool _hasNonDefaultWeapon { get; private set; } // добавлено
 
     protected void Awake()
     {
@@ -25,26 +22,49 @@ public abstract class BaseCharacter : MonoBehaviour
 
     protected void Start()
     {
-        _shooterController.SetWp(_wpPrefab, _hand);
+        SetWp(_baseWpPrefab);
     }
 
     protected void Update()
     {
-        var direct = GetMovementDirect();
-        var lookdirect = direct;
-        if (_shooterController.HasTarget)
-        {
-            lookdirect = _shooterController.TargetPosition - transform.position;
-            lookdirect.y = 0f;
-            lookdirect.Normalize();
-        }
-
-        _characterMovementControler.MovementDirect = direct;
-        _characterMovementControler.LookDirect = lookdirect;
-
         if (_heath <= 0f)
             Destroy(gameObject);
-        
+    }
+
+    public void SetWp(Wp wpPrefab)
+    {
+        _shooterController.SetWp(wpPrefab, _hand);
+        // Если полученное оружие отличается от базового, помечаем как заменённое
+        if (wpPrefab != _baseWpPrefab)
+            _hasNonDefaultWeapon = true;
+    }
+
+    public float GetHealthPercent()
+    {
+        return _heath / _maxHealth;
+    }
+
+    // ... остальные методы без изменений
+    public void SetMovementParams()
+    {
+        var direct = GetMovementDirect();
+        _characterMovementControler.MovementDirect = direct;
+        _characterMovementControler.LookDirect = direct;
+    }
+
+    public bool HasShooterTarget() => _shooterController.HasTarget;
+
+    public void OverrideLookDirect()
+    {
+        var lookdirect = _shooterController.TargetPosition - transform.position;
+        lookdirect.y = 0f;
+        lookdirect.Normalize();
+        _characterMovementControler.LookDirect = lookdirect;
+    }
+
+    public void ApplySpeedBoost(float multiplier, float duration)
+    {
+        _characterMovementControler.ApplyTemporarySpeedBoost(multiplier, duration);
     }
 
     protected abstract Vector3 GetMovementDirect();
@@ -57,15 +77,19 @@ public abstract class BaseCharacter : MonoBehaviour
             _heath -= bullet.Damage;
             Destroy(other.gameObject);
         }
+        else if (LayerUnitl.IsPickUp(other.gameObject))
+        {
+            var pickUp = other.GetComponent<PickUpItem>();
+            pickUp.PickUp(this);
+            Destroy(pickUp.gameObject);
+        }
     }
-
-
     protected void OnDrawGizmos()
     {
         var lastColor = Gizmos.color;
         Gizmos.color = Color.red;
         Gizmos.DrawCube(_hand.position, new Vector3(0.2f, 0.2f, 0.2f));
-
         Gizmos.color = lastColor;
     }
+
 }

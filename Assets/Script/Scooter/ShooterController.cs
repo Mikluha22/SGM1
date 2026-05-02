@@ -15,10 +15,10 @@ public class ShooterController : MonoBehaviour
         }
     }
 
-    private Wp _wp;
+    private Wp _wp = null;
     private float _nextShotTimerSecond;
     private GameObject _target = null;
-    private Collider[] _colliders = new Collider[2];
+    private Collider[] _colliders = new Collider[16];
 
     private void Update()
     {
@@ -37,7 +37,9 @@ public class ShooterController : MonoBehaviour
     }
     public void SetWp(Wp wpPrefab, Transform hand)
     { 
-        _wp=Instantiate(wpPrefab, hand);
+        if (_wp != null)
+            Destroy(_wp.gameObject);
+        _wp =Instantiate(wpPrefab, hand);
         _wp.transform.localPosition= Vector3.zero;
         _wp.transform.localRotation= Quaternion.identity;
 
@@ -46,16 +48,56 @@ public class ShooterController : MonoBehaviour
     private GameObject GetTarget()
     { 
         GameObject target = null;
+        if (_wp == null)
+            return null;
 
         var position = _wp.transform.position;
         var radius = _wp.ShootRadios;
-        string layerToFind = gameObject.layer == LayerUnitl.EnemyLayer ? LayerUnitl.PlayerLayerName : LayerUnitl.EnemyLayerName;
-        var mask = LayerMask.GetMask(layerToFind);
 
-        var size = Physics.OverlapSphereNonAlloc(position, radius, _colliders, mask);
-        if (size > 0)
+        // If this object is an Enemy, search for Players and other Enemies
+        // so enemies can shoot the player and each other. Otherwise (Player)
+        // search for Enemies.
+        int mask;
+        if (gameObject.layer == LayerUnitl.EnemyLayer)
         {
-            target = _colliders[0].gameObject;
+            mask = LayerMask.GetMask(LayerUnitl.PlayerLayerName, LayerUnitl.EnemyLayerName);
+
+            GameObject playerFound = null;
+            GameObject otherFound = null;
+
+            var size = Physics.OverlapSphereNonAlloc(position, radius, _colliders, mask);
+            for (int i = 0; i < size; i++)
+            {
+                var go = _colliders[i].gameObject;
+                if (go == gameObject) // ignore self
+                    continue;
+
+                if (go.layer == LayerUnitl.PlayerLayer)
+                {
+                    playerFound = go;
+                    break; // priority to player
+                }
+
+                // remember other (enemy) target if player not present
+                if (otherFound == null)
+                    otherFound = go;
+            }
+
+            target = playerFound ?? otherFound;
+        }
+        else
+        {
+            mask = LayerMask.GetMask(LayerUnitl.EnemyLayerName);
+            var size = Physics.OverlapSphereNonAlloc(position, radius, _colliders, mask);
+            for (int i = 0; i < size; i++)
+            {
+                var go = _colliders[i].gameObject;
+                if (go != gameObject) // ignore self
+                {
+                    target = go;
+                    break;
+                }
+            }
         }
 
         return target;
