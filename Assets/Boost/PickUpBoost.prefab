@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5246285045677498586}
   - component: {fileID: 4802518333809014753}
   - component: {fileID: -3815560150672863815}
+  - component: {fileID: 7880881610989497253}
   m_Layer: 8
   m_Name: PickUpBoost
   m_TagString: Untagged
@@ -127,3 +128,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PickUpBoost
   _speedMultiplier: 2
   _duration: 5
+--- !u!114 &7880881610989497253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3341546500109987100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13de18cdfa5144e409b6a09d513c4d81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ItemFloatRotate
+  rotationSpeed: 90
+  bobSpeed: 2
+  bobAmount: 0.1
