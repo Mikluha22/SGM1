@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 [RequireComponent(typeof(CharacterMovementControler))]
 [RequireComponent(typeof(ShooterController))]
@@ -6,10 +7,14 @@ public abstract class BaseCharacter : MonoBehaviour
 {
     [SerializeField] private Wp _baseWpPrefab;
     [SerializeField] private Transform _hand;
-    [SerializeField] private float _heath = 10f;
+    [SerializeField] private Animator _animator;
+    [SerializeField] protected float _heath = 10f;
+    [SerializeField] protected float _maxHealth = 10f;      // добавлено
 
-    private CharacterMovementControler _characterMovementControler;
+    protected CharacterMovementControler _characterMovementControler; // изменён доступ
     private ShooterController _shooterController;
+
+    protected bool _hasNonDefaultWeapon { get; private set; } // добавлено
 
     protected void Awake()
     {
@@ -24,28 +29,76 @@ public abstract class BaseCharacter : MonoBehaviour
 
     protected void Update()
     {
-        var direct = GetMovementDirect();
-        var lookdirect = direct;
-        if (_shooterController.HasTarget)
+        if (_heath <= 0f)
+            Die();
+    }
+
+    private bool _isDead = false;
+
+    private void Die()
+    {
+        if (_isDead) return;
+        _isDead = true;
+
+        _characterMovementControler.MovementDirect = Vector3.zero;
+        GetComponent<Collider>().enabled = false;
+        _animator.SetTrigger("Die");
+
+        // Уведомляем GameManager
+        GameManager gm = FindAnyObjectByType<GameManager>();
+        if (gm != null)
         {
-            lookdirect = _shooterController.TargetPosition - transform.position;
-            lookdirect.y = 0f;
-            lookdirect.Normalize();
+            if (this is EnemyController)
+                gm.EnemyKilled();
+            else if (this is PlayerController)
+                gm.PlayerDied();
         }
 
-        _characterMovementControler.MovementDirect = direct;
-        _characterMovementControler.LookDirect = lookdirect;
+        StartCoroutine(DestroyAfterDeathAnimation());
+    }
 
-        if (_heath <= 0f)
-            Destroy(gameObject);
+    private IEnumerator DestroyAfterDeathAnimation()
+    {
+        yield return null; // ждём кадр, чтобы аниматор обработал переход
+        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(length);
+        Destroy(gameObject);
     }
 
     public void SetWp(Wp wpPrefab)
     {
         _shooterController.SetWp(wpPrefab, _hand);
+        // Если полученное оружие отличается от базового, помечаем как заменённое
+        if (wpPrefab != _baseWpPrefab)
+            _hasNonDefaultWeapon = true;
     }
 
-    /// <summary> Применить временное ускорение от подбираемого бонуса. </summary>
+    public float GetHealthPercent()
+    {
+        return _heath / _maxHealth;
+    }
+
+    // ... остальные методы без изменений
+    public void SetMovementParams()
+    {
+        var direct = GetMovementDirect();
+        _characterMovementControler.MovementDirect = direct;
+        _characterMovementControler.LookDirect = direct;
+
+        _animator.SetBool("IsMoving", direct != Vector3.zero);
+        _animator.SetBool("IsShooting", _shooterController.HasTarget);
+    }
+
+    public bool HasShooterTarget() => _shooterController.HasTarget;
+
+    public void OverrideLookDirect()
+    {
+        var lookdirect = _shooterController.TargetPosition - transform.position;
+        lookdirect.y = 0f;
+        lookdirect.Normalize();
+        _characterMovementControler.LookDirect = lookdirect;
+    }
+
     public void ApplySpeedBoost(float multiplier, float duration)
     {
         _characterMovementControler.ApplyTemporarySpeedBoost(multiplier, duration);
@@ -68,7 +121,6 @@ public abstract class BaseCharacter : MonoBehaviour
             Destroy(pickUp.gameObject);
         }
     }
-
     protected void OnDrawGizmos()
     {
         var lastColor = Gizmos.color;
@@ -76,4 +128,5 @@ public abstract class BaseCharacter : MonoBehaviour
         Gizmos.DrawCube(_hand.position, new Vector3(0.2f, 0.2f, 0.2f));
         Gizmos.color = lastColor;
     }
+
 }
