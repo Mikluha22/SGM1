@@ -10,6 +10,9 @@ public abstract class BaseCharacter : MonoBehaviour
     [SerializeField] private Animator _animator;
     [SerializeField] protected float _heath = 10f;
     [SerializeField] protected float _maxHealth = 10f;      // добавлено
+    [SerializeField] private ParticleSystem hitEffectPrefab;
+    [SerializeField] private ParticleSystem destructionEffectPrefab;
+    [SerializeField] private AudioClip deathSound;
 
     protected CharacterMovementControler _characterMovementControler; // изменён доступ
     private ShooterController _shooterController;
@@ -40,12 +43,26 @@ public abstract class BaseCharacter : MonoBehaviour
         if (_isDead) return;
         _isDead = true;
 
-        // отключаем управление, коллизию и т.п.
         _characterMovementControler.MovementDirect = Vector3.zero;
         GetComponent<Collider>().enabled = false;
-        // можно отключить стрельбу: GetComponent<ShooterController>().enabled = false;
-
         _animator.SetTrigger("Die");
+
+        // Возможные новые строки
+        GameManager gm = FindAnyObjectByType<GameManager>();
+        if (gm != null)
+        {
+            if (this is EnemyController)
+                gm.EnemyKilled();
+            else if (this is PlayerController)
+                gm.PlayerDied();
+        }
+
+        if (deathSound != null)
+            AudioSource.PlayClipAtPoint(deathSound, transform.position);
+
+        if (destructionEffectPrefab != null)
+            Instantiate(destructionEffectPrefab, transform.position, Quaternion.identity);
+
         StartCoroutine(DestroyAfterDeathAnimation());
     }
 
@@ -104,6 +121,8 @@ public abstract class BaseCharacter : MonoBehaviour
         {
             var bullet = other.GetComponent<Bullet>();
             _heath -= bullet.Damage;
+            if (hitEffectPrefab != null)
+                Instantiate(hitEffectPrefab, other.transform.position, Quaternion.identity);
             Destroy(other.gameObject);
         }
         else if (LayerUnitl.IsPickUp(other.gameObject))
